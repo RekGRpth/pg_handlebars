@@ -111,9 +111,9 @@ EXTENSION(pg_handlebars) {
     if (PG_ARGISNULL(arg)) E("template is null!");
     template = DatumGetTextP(PG_GETARG_DATUM(arg));
     switch (PG_NARGS()) {
-        case 5: arg += 1; break;
-        case 6: arg += 2; break;
-        default: E("expect be 5 or 6 args");
+        case 8: arg += 1; break;
+        case 9: arg += 2; break;
+        default: E("expect be 8 or 9 args");
     }
     if (PG_ARGISNULL(arg)) E("flags is null!");
     compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
@@ -171,12 +171,12 @@ EXTENSION(pg_handlebars) {
     handlebars_value_dtor(input);
     handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
-        case 5: if (!buffer) PG_RETURN_NULL(); else {
+        case 8: if (!buffer) PG_RETURN_NULL(); else {
             text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
             handlebars_context_dtor(ctx);
             PG_RETURN_TEXT_P(output);
         } break;
-        case 6: if (!buffer) PG_RETURN_BOOL(false); else {
+        case 9: if (!buffer) PG_RETURN_BOOL(false); else {
             char *name;
             FILE *file;
             if (PG_ARGISNULL(2)) { handlebars_context_dtor(ctx); E("file is null!"); }
@@ -188,6 +188,6 @@ EXTENSION(pg_handlebars) {
             handlebars_context_dtor(ctx);
             PG_RETURN_BOOL(true);
         } break;
-        default: E("expect be 5 or 6 args");
+        default: E("expect be 8 or 9 args");
     }
 }
