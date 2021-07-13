@@ -1,0 +1,33 @@
+{
+    "name": "pg_handlebars",
+    "abstract": "PostgreSQL handlebars",
+    "description": "PostgreSQL implementation of handlebars templating",
+    "version": "1.0.0",
+    "maintainer": "RekGRpth <rekgrpth@gmail.com>",
+    "license": "mit",
+    "provides": {
+        "pg_handlebars": {
+            "file": "pg_handlebars--1.0.sql",
+            "version": "1.0.0"
+        }
+    },
+    "resources": {
+        "bugtracker": {
+            "web": "https://github.com/RekGRpth/pg_handlebars/issues"
+        },
+        "repository": {
+            "url": "git://github.com/RekGRpth/pg_handlebars.git",
+            "web": "https://github.com/RekGRpth/pg_handlebars",
+            "type": "git"
+        }
+    },
+    "generated_by": "RekGRpth",
+    "meta-spec": {
+        "version": "1.0.0",
+        "url": "http://pgxn.org/meta/spec.txt"
+    },
+    "tags": [
+        "handlebars",
+        "template"
+    ]
+}
