@@ -4,6 +4,9 @@
 CREATE OR REPLACE FUNCTION handlebars_compile(template TEXT, flags int8 default 0) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_handlebars_compile' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_compile(template TEXT, flags int8 default 0, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_handlebars_compile' LANGUAGE 'c';
 
+CREATE OR REPLACE FUNCTION handlebars_execute(json JSON, template TEXT, flags int8 default 0, convert bool default true, run int8 default 1) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_handlebars_execute' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION handlebars_execute(json JSON, template TEXT, flags int8 default 0, convert bool default true, run int8 default 1, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_handlebars_execute' LANGUAGE 'c';
+
 CREATE OR REPLACE FUNCTION handlebars_lex(template TEXT, flags int8 default 0) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_handlebars_lex' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_lex(template TEXT, flags int8 default 0, file TEXT) RETURNS BOOL AS 'MODULE_PATHNAME', 'pg_handlebars_lex' LANGUAGE 'c';
 

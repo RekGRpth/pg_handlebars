@@ -25,6 +25,7 @@
 #include <handlebars/handlebars_value.h>
 #include <handlebars/handlebars_vm.h>
 #include <handlebars/handlebars_yaml.h>
+#include "pg_handlebars_json.h"
 #include <talloc.h>
 #include <utils/builtins.h>
 
@@ -65,7 +66,6 @@
 PG_MODULE_MAGIC;
 
 static size_t pool_size = 2 * 1024 * 1024;
-//static struct handlebars_context *ctx;
 static TALLOC_CTX *root;
 
 void _PG_init(void); void _PG_init(void) {
@@ -78,11 +78,9 @@ void _PG_init(void); void _PG_init(void) {
         root = talloc_pool(NULL, pool_size);
         talloc_steal(root, old_root);
     }
-//    ctx = handlebars_context_ctor_ex(root);
 }
 
 void _PG_fini(void); void _PG_fini(void) {
-//    handlebars_context_dtor(ctx);
     talloc_free(root);
 }
 
@@ -133,7 +131,77 @@ EXTENSION(pg_handlebars_compile) {
     }
 }
 
-EXTENSION(pg_handlebars_execute) {}
+EXTENSION(pg_handlebars_execute) {
+    bool convert_input = true;
+    jmp_buf jmp;
+    long run_count = 1;
+    struct handlebars_ast_node *ast;
+    struct handlebars_compiler *compiler;
+    struct handlebars_context *ctx;
+    struct handlebars_module *module;
+    struct handlebars_parser *parser;
+    struct handlebars_program *program;
+    struct handlebars_string *buffer = NULL;
+    struct handlebars_string *tmpl;
+    struct handlebars_value *input;
+    text *json;
+    text *template;
+    unsigned long compiler_flags = 0;
+    if (PG_ARGISNULL(0)) E("json is null!");
+    if (PG_ARGISNULL(1)) E("template is null!");
+    if (PG_ARGISNULL(2)) E("flags is null!");
+    if (PG_ARGISNULL(3)) E("convert is null!");
+    if (PG_ARGISNULL(4)) E("run is null!");
+    json = DatumGetTextP(PG_GETARG_DATUM(0));
+    template = DatumGetTextP(PG_GETARG_DATUM(1));
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(2));
+    convert_input = DatumGetBool(PG_GETARG_DATUM(3));
+    run_count = DatumGetInt64(PG_GETARG_DATUM(4));
+    ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
+    parser = handlebars_parser_ctor(ctx);
+    compiler = handlebars_compiler_ctor(ctx);
+    handlebars_compiler_set_flags(compiler, compiler_flags);
+    tmpl = handlebars_string_ctor(HBSCTX(parser), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
+    if (convert_input) handlebars_value_convert(input);
+    ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
+    program = handlebars_compiler_compile_ex(compiler, ast);
+    module = handlebars_program_serialize(ctx, program);
+    do {
+        struct handlebars_vm *vm;
+        if (buffer) {
+            handlebars_talloc_free(buffer);
+            buffer = NULL;
+        }
+        vm = handlebars_vm_ctor(ctx);
+        handlebars_vm_set_flags(vm, compiler_flags);
+        buffer = handlebars_vm_execute(vm, module, input);
+        buffer = talloc_steal(ctx, buffer);
+        handlebars_vm_dtor(vm);
+    } while(--run_count > 0);
+    switch (PG_NARGS()) {
+        case 5: if (!buffer) PG_RETURN_NULL(); else {
+            text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
+            handlebars_context_dtor(ctx);
+            PG_RETURN_TEXT_P(output);
+        } break;
+        case 6: if (!buffer) PG_RETURN_BOOL(false); else {
+            char *name;
+            FILE *file;
+            if (PG_ARGISNULL(2)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (!(file = fopen(name, "wb"))) E("!fopen");
+            pfree(name);
+            fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), file);
+            fclose(file);
+            handlebars_context_dtor(ctx);
+            PG_RETURN_BOOL(true);
+        } break;
+        default: E("expect be 5 or 6 args");
+    }
+}
 
 EXTENSION(pg_handlebars_lex) {
     jmp_buf jmp;
