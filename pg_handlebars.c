@@ -91,8 +91,8 @@ EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars
 
 EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null!"); convert_input = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); partial_extension = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); partial_path = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
+EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); if (partial_extension) pfree(partial_extension); partial_extension = cstring_to_text_with_len(VARDATA_ANY(DatumGetTextP(PG_GETARG_DATUM(0))), VARSIZE_ANY_EXHDR(DatumGetTextP(PG_GETARG_DATUM(0)))); PG_RETURN_NULL(); }
+EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); if (partial_path) pfree(partial_path); partial_path = cstring_to_text_with_len(VARDATA_ANY(DatumGetTextP(PG_GETARG_DATUM(0))), VARSIZE_ANY_EXHDR(DatumGetTextP(PG_GETARG_DATUM(0)))); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_run_count) { if (PG_ARGISNULL(0)) E("run is null!"); run_count = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 
 EXTENSION(pg_handlebars) {
