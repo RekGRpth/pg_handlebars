@@ -65,19 +65,10 @@
 
 PG_MODULE_MAGIC;
 
-static size_t pool_size = 2 * 1024 * 1024;
 static TALLOC_CTX *root;
 
 void _PG_init(void); void _PG_init(void) {
-#ifdef HANDLEBARS_HAVE_VALGRIND
-    if (RUNNING_ON_VALGRIND) pool_size = 0;
-#endif
     root = talloc_new(NULL);
-    if (pool_size > 0) {
-        void *old_root = root;
-        root = talloc_pool(NULL, pool_size);
-        talloc_steal(root, old_root);
-    }
 }
 
 void _PG_fini(void); void _PG_fini(void) {
