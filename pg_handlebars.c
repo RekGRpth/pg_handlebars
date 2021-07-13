@@ -68,7 +68,6 @@ PG_MODULE_MAGIC;
 static bool convert_input = true;
 static bool enable_partial_loader = true;
 static long run_count = 1;
-static size_t pool_size = 2 * 1024 * 1024;
 static text *partial_extension = NULL;
 static text *partial_path = NULL;
 static unsigned long compiler_flags = handlebars_compiler_flag_none;
@@ -94,7 +93,6 @@ EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); partial_extension = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); partial_path = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_pool_size) { if (PG_ARGISNULL(0)) E("pool is null!"); pool_size = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_run_count) { if (PG_ARGISNULL(0)) E("run is null!"); run_count = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 
 EXTENSION(pg_handlebars) {
@@ -117,14 +115,6 @@ EXTENSION(pg_handlebars) {
     json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     root = talloc_new(NULL);
-#ifdef HANDLEBARS_HAVE_VALGRIND
-    if (RUNNING_ON_VALGRIND) pool_size = 0;
-#endif
-    if (pool_size > 0) {
-        void *old_root = root;
-        root = talloc_pool(NULL, pool_size);
-        talloc_steal(root, old_root);
-    }
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         const char *error = pstrdup(handlebars_error_message(ctx));
