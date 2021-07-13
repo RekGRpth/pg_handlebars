@@ -101,11 +101,11 @@ EXTENSION(pg_handlebars_compile) {
     compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
+    parser = handlebars_parser_ctor(ctx);
     compiler = handlebars_compiler_ctor(ctx);
     handlebars_compiler_set_flags(compiler, compiler_flags);
     tmpl = handlebars_string_ctor(HBSCTX(ctx), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
     if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
-    parser = handlebars_parser_ctor(ctx);
     ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
     program = handlebars_compiler_compile_ex(compiler, ast);
     print = handlebars_program_print(ctx, program, 0);
