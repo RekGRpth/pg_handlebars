@@ -79,8 +79,6 @@ void _PG_init(void); void _PG_init(void) {
 
 void _PG_fini(void); void _PG_fini(void) {
     talloc_free(root);
-    if (partial_extension) pfree(partial_extension);
-    if (partial_path) pfree(partial_path);
 }
 
 EXTENSION(pg_handlebars_compiler_flag_all) { compiler_flags |= handlebars_compiler_flag_all; PG_RETURN_NULL(); }
@@ -102,8 +100,8 @@ EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars
 
 EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null!"); convert_input = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); if (partial_extension) pfree(partial_extension); partial_extension = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); if (partial_path) pfree(partial_path); partial_path = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
+EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); partial_extension = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
+EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); partial_path = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_run_count) { if (PG_ARGISNULL(0)) E("run is null!"); run_count = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 
 EXTENSION(pg_handlebars) {
@@ -125,11 +123,7 @@ EXTENSION(pg_handlebars) {
     json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     ctx = handlebars_context_ctor_ex(root);
-    if (handlebars_setjmp_ex(ctx, &jmp)) {
-        const char *error = handlebars_error_message(ctx);
-        handlebars_context_dtor(ctx);
-        E(error);
-    }
+    if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     parser = handlebars_parser_ctor(ctx);
     compiler = handlebars_compiler_ctor(ctx);
     if (enable_partial_loader) {
@@ -171,15 +165,15 @@ EXTENSION(pg_handlebars) {
         case 3: if (!buffer) { handlebars_context_dtor(ctx); PG_RETURN_BOOL(false); } else {
             char *name;
             FILE *file;
-            if (PG_ARGISNULL(2)) { handlebars_context_dtor(ctx); E("file is null!"); }
+            if (PG_ARGISNULL(2)) handlebars_throw(ctx, HANDLEBARS_ERROR, "file is null!");
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(file = fopen(name, "wb"))) { handlebars_context_dtor(ctx); E("!fopen"); }
+            if (!(file = fopen(name, "wb"))) handlebars_throw(ctx, HANDLEBARS_ERROR, "!fopen");
             pfree(name);
             fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), file);
             fclose(file);
             handlebars_context_dtor(ctx);
             PG_RETURN_BOOL(true);
         } break;
-        default: { handlebars_context_dtor(ctx); E("expect be 2 or 3 args"); }
+        default: handlebars_throw(ctx, HANDLEBARS_ERROR, "expect be 2 or 3 args");
     }
 }
