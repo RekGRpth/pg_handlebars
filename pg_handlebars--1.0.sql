@@ -22,6 +22,7 @@ CREATE OR REPLACE FUNCTION handlebars_convert_input(convert bool) RETURNS void A
 CREATE OR REPLACE FUNCTION handlebars_enable_partial_loader(partial bool) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_enable_partial_loader' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_partial_extension(extension text) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_partial_extension' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_partial_path(path text) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_partial_path' LANGUAGE 'c';
+CREATE OR REPLACE FUNCTION handlebars_pool_size(pool int8) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_pool_size' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_run_count(run int8) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_run_count' LANGUAGE 'c';
 
 CREATE OR REPLACE FUNCTION handlebars(json JSON, template TEXT) RETURNS TEXT AS 'MODULE_PATHNAME', 'pg_handlebars' LANGUAGE 'c';
