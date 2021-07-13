@@ -164,6 +164,7 @@ EXTENSION(pg_handlebars_execute) {
     handlebars_compiler_set_flags(compiler, compiler_flags);
     tmpl = handlebars_string_ctor(HBSCTX(parser), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
     if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
     if (convert_input) handlebars_value_convert(input);
     ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
@@ -181,6 +182,7 @@ EXTENSION(pg_handlebars_execute) {
         buffer = talloc_steal(ctx, buffer);
         handlebars_vm_dtor(vm);
     } while(--run_count > 0);
+    handlebars_value_dtor(input);
     switch (PG_NARGS()) {
         case 5: if (!buffer) PG_RETURN_NULL(); else {
             text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
