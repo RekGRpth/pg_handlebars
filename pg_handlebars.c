@@ -85,11 +85,11 @@ void _PG_fini(void); void _PG_fini(void) {
 }
 
 EXTENSION(pg_handlebars) {
-    bool convert_input = true;
-    bool enable_partial_loader = false;
+    bool convert_input;
+    bool enable_partial_loader;
     int arg = 0;
     jmp_buf jmp;
-    long run_count = 1;
+    long run_count;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
     struct handlebars_context *ctx;
@@ -104,7 +104,7 @@ EXTENSION(pg_handlebars) {
     text *partial_extension;
     text *partial_path;
     text *template;
-    unsigned long compiler_flags = 0;
+    unsigned long compiler_flags;
     if (PG_ARGISNULL(arg)) E("json is null!");
     json = DatumGetTextP(PG_GETARG_DATUM(arg));
     arg++;
@@ -171,12 +171,12 @@ EXTENSION(pg_handlebars) {
     handlebars_value_dtor(input);
     handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
-        case 8: if (!buffer) PG_RETURN_NULL(); else {
+        case 8: if (!buffer) { handlebars_context_dtor(ctx); PG_RETURN_NULL(); } else {
             text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
             handlebars_context_dtor(ctx);
             PG_RETURN_TEXT_P(output);
         } break;
-        case 9: if (!buffer) PG_RETURN_BOOL(false); else {
+        case 9: if (!buffer) { handlebars_context_dtor(ctx); PG_RETURN_BOOL(false); } else {
             char *name;
             FILE *file;
             if (PG_ARGISNULL(2)) { handlebars_context_dtor(ctx); E("file is null!"); }
@@ -188,6 +188,6 @@ EXTENSION(pg_handlebars) {
             handlebars_context_dtor(ctx);
             PG_RETURN_BOOL(true);
         } break;
-        default: E("expect be 8 or 9 args");
+        default: { handlebars_context_dtor(ctx); E("expect be 8 or 9 args"); }
     }
 }
