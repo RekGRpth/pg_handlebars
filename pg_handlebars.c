@@ -113,6 +113,7 @@ EXTENSION(pg_handlebars) {
     switch (PG_NARGS()) {
         case 5: arg += 1; break;
         case 6: arg += 2; break;
+        default: E("expect be 5 or 6 args");
     }
     if (PG_ARGISNULL(arg)) E("flags is null!");
     compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
@@ -132,7 +133,11 @@ EXTENSION(pg_handlebars) {
     if (PG_ARGISNULL(arg)) E("extension is null!");
     partial_extension = DatumGetTextP(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
-    if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
+    if (handlebars_setjmp_ex(ctx, &jmp)) {
+        const char *error = handlebars_error_message(ctx);
+        handlebars_context_dtor(ctx);
+        E(error);
+    }
     parser = handlebars_parser_ctor(ctx);
     compiler = handlebars_compiler_ctor(ctx);
     if (enable_partial_loader) {
@@ -174,9 +179,9 @@ EXTENSION(pg_handlebars) {
         case 6: if (!buffer) PG_RETURN_BOOL(false); else {
             char *name;
             FILE *file;
-            if (PG_ARGISNULL(2)) E("file is null!");
+            if (PG_ARGISNULL(2)) { handlebars_context_dtor(ctx); E("file is null!"); }
             name = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(file = fopen(name, "wb"))) E("!fopen");
+            if (!(file = fopen(name, "wb"))) { handlebars_context_dtor(ctx); E("!fopen"); }
             pfree(name);
             fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), file);
             fclose(file);
