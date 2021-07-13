@@ -86,6 +86,7 @@ void _PG_fini(void); void _PG_fini(void) {
 
 EXTENSION(pg_handlebars) {
     bool convert_input = true;
+    bool enable_partial_loader = false;
     int arg = 0;
     jmp_buf jmp;
     long run_count = 1;
@@ -98,7 +99,10 @@ EXTENSION(pg_handlebars) {
     struct handlebars_string *buffer = NULL;
     struct handlebars_string *tmpl;
     struct handlebars_value *input;
+    struct handlebars_value *partials;
     text *json;
+    text *partial_extension;
+    text *partial_path;
     text *template;
     unsigned long compiler_flags = 0;
     if (PG_ARGISNULL(arg)) E("json is null!");
@@ -118,10 +122,25 @@ EXTENSION(pg_handlebars) {
     arg++;
     if (PG_ARGISNULL(arg)) E("run is null!");
     run_count = DatumGetInt64(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("partial is null!");
+    enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("path is null!");
+    partial_path = DatumGetTextP(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("extension is null!");
+    partial_extension = DatumGetTextP(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     parser = handlebars_parser_ctor(ctx);
     compiler = handlebars_compiler_ctor(ctx);
+    if (enable_partial_loader) {
+        struct handlebars_string *partial_path_str = handlebars_string_ctor(ctx, VARDATA_ANY(partial_path), VARSIZE_ANY_EXHDR(partial_path));
+        struct handlebars_string *partial_extension_str = handlebars_string_ctor(ctx, VARDATA_ANY(partial_extension), VARSIZE_ANY_EXHDR(partial_extension));
+        partials = handlebars_value_ctor(ctx);
+        (void) handlebars_value_partial_loader_init(ctx, partial_path_str, partial_extension_str, partials);
+    }
     handlebars_compiler_set_flags(compiler, compiler_flags);
     tmpl = handlebars_string_ctor(HBSCTX(parser), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
     if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
@@ -139,11 +158,13 @@ EXTENSION(pg_handlebars) {
         }
         vm = handlebars_vm_ctor(ctx);
         handlebars_vm_set_flags(vm, compiler_flags);
+        handlebars_vm_set_partials(vm, partials);
         buffer = handlebars_vm_execute(vm, module, input);
         buffer = talloc_steal(ctx, buffer);
         handlebars_vm_dtor(vm);
     } while(--run_count > 0);
     handlebars_value_dtor(input);
+    handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
         case 5: if (!buffer) PG_RETURN_NULL(); else {
             text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
