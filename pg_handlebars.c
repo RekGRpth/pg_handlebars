@@ -85,6 +85,7 @@ void _PG_fini(void); void _PG_fini(void) {
 }
 
 EXTENSION(pg_handlebars_compile) {
+    int arg = 0;
     jmp_buf jmp;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
@@ -95,10 +96,14 @@ EXTENSION(pg_handlebars_compile) {
     struct handlebars_string *tmpl;
     text *template;
     unsigned long compiler_flags = 0;
-    if (PG_ARGISNULL(0)) E("template is null!");
-    if (PG_ARGISNULL(1)) E("flags is null!");
-    template = DatumGetTextP(PG_GETARG_DATUM(0));
-    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
+    if (PG_ARGISNULL(arg)) E("template is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(arg));
+    switch (PG_NARGS()) {
+        case 2: arg += 1; break;
+        case 3: arg += 2; break;
+    }
+    if (PG_ARGISNULL(arg)) E("flags is null!");
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     parser = handlebars_parser_ctor(ctx);
@@ -118,8 +123,8 @@ EXTENSION(pg_handlebars_compile) {
         case 3: {
             char *name;
             FILE *file;
-            if (PG_ARGISNULL(2)) E("file is null!");
-            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (PG_ARGISNULL(1)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(1));
             if (!(file = fopen(name, "wb"))) E("!fopen");
             pfree(name);
             fwrite(hbs_str_val(print), sizeof(char), hbs_str_len(print), file);
@@ -133,6 +138,7 @@ EXTENSION(pg_handlebars_compile) {
 
 EXTENSION(pg_handlebars_execute) {
     bool convert_input = true;
+    int arg = 0;
     jmp_buf jmp;
     long run_count = 1;
     struct handlebars_ast_node *ast;
@@ -147,16 +153,23 @@ EXTENSION(pg_handlebars_execute) {
     text *json;
     text *template;
     unsigned long compiler_flags = 0;
-    if (PG_ARGISNULL(0)) E("json is null!");
-    if (PG_ARGISNULL(1)) E("template is null!");
-    if (PG_ARGISNULL(2)) E("flags is null!");
-    if (PG_ARGISNULL(3)) E("convert is null!");
-    if (PG_ARGISNULL(4)) E("run is null!");
-    json = DatumGetTextP(PG_GETARG_DATUM(0));
-    template = DatumGetTextP(PG_GETARG_DATUM(1));
-    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(2));
-    convert_input = DatumGetBool(PG_GETARG_DATUM(3));
-    run_count = DatumGetInt64(PG_GETARG_DATUM(4));
+    if (PG_ARGISNULL(arg)) E("json is null!");
+    json = DatumGetTextP(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("template is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(arg));
+    switch (PG_NARGS()) {
+        case 5: arg += 1; break;
+        case 6: arg += 2; break;
+    }
+    if (PG_ARGISNULL(arg)) E("flags is null!");
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("convert is null!");
+    convert_input = DatumGetBool(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("run is null!");
+    run_count = DatumGetInt64(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     parser = handlebars_parser_ctor(ctx);
@@ -206,16 +219,21 @@ EXTENSION(pg_handlebars_execute) {
 }
 
 EXTENSION(pg_handlebars_lex) {
+    int arg = 0;
     jmp_buf jmp;
     struct handlebars_context *ctx;
     struct handlebars_parser *parser;
     struct handlebars_string *tmpl;
     text *template;
     unsigned long compiler_flags = 0;
-    if (PG_ARGISNULL(0)) E("template is null!");
-    if (PG_ARGISNULL(1)) E("flags is null!");
-    template = DatumGetTextP(PG_GETARG_DATUM(0));
-    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
+    if (PG_ARGISNULL(arg)) E("template is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(arg));
+    switch (PG_NARGS()) {
+        case 2: arg += 1; break;
+        case 3: arg += 2; break;
+    }
+    if (PG_ARGISNULL(arg)) E("flags is null!");
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     tmpl = handlebars_string_ctor(HBSCTX(ctx), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
@@ -237,8 +255,8 @@ EXTENSION(pg_handlebars_lex) {
         case 3: {
             char *name;
             FILE *file;
-            if (PG_ARGISNULL(2)) E("file is null!");
-            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (PG_ARGISNULL(1)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(1));
             if (!(file = fopen(name, "wb"))) E("!fopen");
             pfree(name);
             for (struct handlebars_token **tokens = handlebars_lex_ex(parser, tmpl); *tokens; tokens++ ) {
@@ -256,6 +274,7 @@ EXTENSION(pg_handlebars_lex) {
 
 EXTENSION(pg_handlebars_module) {
     bool pretty_print = true;
+    int arg = 0;
     jmp_buf jmp;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
@@ -267,12 +286,17 @@ EXTENSION(pg_handlebars_module) {
     struct handlebars_string *tmpl;
     text *template;
     unsigned long compiler_flags = 0;
-    if (PG_ARGISNULL(0)) E("template is null!");
-    if (PG_ARGISNULL(1)) E("flags is null!");
-    if (PG_ARGISNULL(2)) E("pretty is null!");
-    template = DatumGetTextP(PG_GETARG_DATUM(0));
-    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
-    pretty_print = DatumGetBool(PG_GETARG_DATUM(2));
+    if (PG_ARGISNULL(arg)) E("template is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(arg));
+    switch (PG_NARGS()) {
+        case 3: arg += 1; break;
+        case 4: arg += 2; break;
+    }
+    if (PG_ARGISNULL(arg)) E("flags is null!");
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
+    arg++;
+    if (PG_ARGISNULL(arg)) E("pretty is null!");
+    pretty_print = DatumGetBool(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     parser = handlebars_parser_ctor(ctx);
@@ -291,7 +315,7 @@ EXTENSION(pg_handlebars_module) {
                 print = handlebars_module_print(ctx, module);
                 output = cstring_to_text_with_len(hbs_str_val(print), hbs_str_len(print));
             } else {
-                handlebars_module_normalize_pointers(module, (void *) 0);
+                handlebars_module_normalize_pointers(module, NULL);
                 output = cstring_to_text_with_len((char *)module, handlebars_module_get_size(module));
             }
             handlebars_context_dtor(ctx);
@@ -300,15 +324,15 @@ EXTENSION(pg_handlebars_module) {
         case 4: {
             char *name;
             FILE *file;
-            if (PG_ARGISNULL(3)) E("file is null!");
-            name = TextDatumGetCString(PG_GETARG_DATUM(3));
+            if (PG_ARGISNULL(1)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(1));
             if (!(file = fopen(name, "wb"))) E("!fopen");
             pfree(name);
             if (pretty_print) {
                 print = handlebars_module_print(ctx, module);
                 fwrite(hbs_str_val(print), sizeof(char), hbs_str_len(print), file);
             } else {
-                handlebars_module_normalize_pointers(module, (void *) 0);
+                handlebars_module_normalize_pointers(module, NULL);
                 fwrite((char *) module, sizeof(char), handlebars_module_get_size(module), file);
             }
             fclose(file);
@@ -320,6 +344,7 @@ EXTENSION(pg_handlebars_module) {
 }
 
 EXTENSION(pg_handlebars_parse) {
+    int arg = 0;
     jmp_buf jmp;
     struct handlebars_ast_node *ast;
     struct handlebars_context *ctx;
@@ -328,10 +353,14 @@ EXTENSION(pg_handlebars_parse) {
     struct handlebars_string *tmpl;
     text *template;
     unsigned long compiler_flags = 0;
-    if (PG_ARGISNULL(0)) E("template is null!");
-    if (PG_ARGISNULL(1)) E("flags is null!");
-    template = DatumGetTextP(PG_GETARG_DATUM(0));
-    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
+    if (PG_ARGISNULL(arg)) E("template is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(arg));
+    switch (PG_NARGS()) {
+        case 2: arg += 1; break;
+        case 3: arg += 2; break;
+    }
+    if (PG_ARGISNULL(arg)) E("flags is null!");
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(arg));
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     tmpl = handlebars_string_ctor(HBSCTX(ctx), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
@@ -348,8 +377,8 @@ EXTENSION(pg_handlebars_parse) {
         case 3: {
             char *name;
             FILE *file;
-            if (PG_ARGISNULL(2)) E("file is null!");
-            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (PG_ARGISNULL(1)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(1));
             if (!(file = fopen(name, "wb"))) E("!fopen");
             pfree(name);
             fwrite(hbs_str_val(print), sizeof(char), hbs_str_len(print), file);
