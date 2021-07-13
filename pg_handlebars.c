@@ -69,20 +69,18 @@ static bool convert_input = true;
 static bool enable_partial_loader = true;
 static long run_count = 1;
 static TALLOC_CTX *root;
-static text *partial_extension;
-static text *partial_path;
+static text *partial_extension = NULL;
+static text *partial_path = NULL;
 static unsigned long compiler_flags = handlebars_compiler_flag_none;
 
 void _PG_init(void); void _PG_init(void) {
-    partial_extension = cstring_to_text_with_len(".hbs", sizeof(".hbs") - 1);
-    partial_path = cstring_to_text_with_len(".", sizeof(".") - 1);
     root = talloc_new(NULL);
 }
 
 void _PG_fini(void); void _PG_fini(void) {
     talloc_free(root);
-    pfree(partial_extension);
-    pfree(partial_path);
+    if (partial_extension) pfree(partial_extension);
+    if (partial_path) pfree(partial_path);
 }
 
 EXTENSION(pg_handlebars_compiler_flag_all) { compiler_flags |= handlebars_compiler_flag_all; PG_RETURN_NULL(); }
@@ -104,8 +102,8 @@ EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars
 
 EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null!"); convert_input = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); pfree(partial_extension); partial_extension = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); pfree(partial_path); partial_path = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
+EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); if (partial_extension) pfree(partial_extension); partial_extension = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
+EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); if (partial_path) pfree(partial_path); partial_path = DatumGetTextP(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_run_count) { if (PG_ARGISNULL(0)) E("run is null!"); run_count = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 
 EXTENSION(pg_handlebars) {
@@ -135,8 +133,8 @@ EXTENSION(pg_handlebars) {
     parser = handlebars_parser_ctor(ctx);
     compiler = handlebars_compiler_ctor(ctx);
     if (enable_partial_loader) {
-        struct handlebars_string *partial_path_str = handlebars_string_ctor(ctx, VARDATA_ANY(partial_path), VARSIZE_ANY_EXHDR(partial_path));
-        struct handlebars_string *partial_extension_str = handlebars_string_ctor(ctx, VARDATA_ANY(partial_extension), VARSIZE_ANY_EXHDR(partial_extension));
+        struct handlebars_string *partial_path_str = partial_path ? handlebars_string_ctor(ctx, VARDATA_ANY(partial_path), VARSIZE_ANY_EXHDR(partial_path)) : handlebars_string_ctor(ctx, ".", sizeof(".") - 1);
+        struct handlebars_string *partial_extension_str = partial_extension ? handlebars_string_ctor(ctx, VARDATA_ANY(partial_extension), VARSIZE_ANY_EXHDR(partial_extension)) : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1);
         partials = handlebars_value_ctor(ctx);
         (void) handlebars_value_partial_loader_init(ctx, partial_path_str, partial_extension_str, partials);
     }
