@@ -1,7 +1,5 @@
 #include <handlebars/handlebars_json.h>
 #include <json-c/json.h>
-//#include <json-c/json_object.h>
-//#include <json-c/json_tokener.h>
 #include "pg_handlebars_json.h"
 
 void handlebars_value_init_json_string_length(struct handlebars_context *ctx, struct handlebars_value * value, const char * json, size_t length) {
@@ -14,5 +12,5 @@ void handlebars_value_init_json_string_length(struct handlebars_context *ctx, st
     if (json_tokener_get_parse_end(tok) < length) handlebars_throw(ctx, HANDLEBARS_ERROR, "json_tokener_get_parse_end < %li", length);
     json_tokener_free(tok);
     handlebars_value_init_json_object(ctx, value, root);
-    if (!json_object_put(root)) handlebars_throw(ctx, HANDLEBARS_ERROR, "!json_object_put");
+    json_object_put(root);
 }
