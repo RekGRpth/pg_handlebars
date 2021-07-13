@@ -87,7 +87,6 @@ void _PG_fini(void); void _PG_fini(void) {
 }
 
 EXTENSION(pg_handlebars_compile) {
-    FILE *file;
     jmp_buf jmp;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
@@ -96,24 +95,12 @@ EXTENSION(pg_handlebars_compile) {
     struct handlebars_program *program;
     struct handlebars_string *print;
     struct handlebars_string *tmpl;
-    text *output;
     text *template;
     unsigned long compiler_flags = 0;
     if (PG_ARGISNULL(0)) E("template is null!");
     if (PG_ARGISNULL(1)) E("flags is null!");
     template = DatumGetTextP(PG_GETARG_DATUM(0));
     compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
-    switch (PG_NARGS()) {
-        case 2: break;
-        case 3: {
-            char *name;
-            if (PG_ARGISNULL(2)) E("file is null!");
-            name = TextDatumGetCString(PG_GETARG_DATUM(2));
-            if (!(file = fopen(name, "wb"))) E("!fopen");
-            pfree(name);
-        } break;
-        default: E("expect be 2 or 3 args");
-    }
     ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
     compiler = handlebars_compiler_ctor(ctx);
@@ -125,22 +112,181 @@ EXTENSION(pg_handlebars_compile) {
     program = handlebars_compiler_compile_ex(compiler, ast);
     print = handlebars_program_print(ctx, program, 0);
     switch (PG_NARGS()) {
-        case 2:
-            output = cstring_to_text_with_len(hbs_str_val(print), hbs_str_len(print));
+        case 2: {
+            text *output = cstring_to_text_with_len(hbs_str_val(print), hbs_str_len(print));
             handlebars_context_dtor(ctx);
             PG_RETURN_TEXT_P(output);
-            break;
-        case 3:
+        } break;
+        case 3: {
+            char *name;
+            FILE *file;
+            if (PG_ARGISNULL(2)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (!(file = fopen(name, "wb"))) E("!fopen");
+            pfree(name);
             fwrite(hbs_str_val(print), sizeof(char), hbs_str_len(print), file);
             fclose(file);
             handlebars_context_dtor(ctx);
             PG_RETURN_BOOL(true);
-            break;
+        } break;
         default: E("expect be 2 or 3 args");
     }
 }
 
 EXTENSION(pg_handlebars_execute) {}
-EXTENSION(pg_handlebars_lex) {}
-EXTENSION(pg_handlebars_module) {}
-EXTENSION(pg_handlebars_parse) {}
+
+EXTENSION(pg_handlebars_lex) {
+    jmp_buf jmp;
+    struct handlebars_context *ctx;
+    struct handlebars_parser *parser;
+    struct handlebars_string *tmpl;
+    text *template;
+    unsigned long compiler_flags = 0;
+    if (PG_ARGISNULL(0)) E("template is null!");
+    if (PG_ARGISNULL(1)) E("flags is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(0));
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
+    ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
+    tmpl = handlebars_string_ctor(HBSCTX(ctx), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    parser = handlebars_parser_ctor(ctx);
+    switch (PG_NARGS()) {
+        case 2: {
+            text *output = cstring_to_text_with_len("", 0);
+            for (struct handlebars_token **tokens = handlebars_lex_ex(parser, tmpl); *tokens; tokens++ ) {
+                struct handlebars_string *tmp = handlebars_token_print(ctx, *tokens, 1);
+                text *out = cstring_to_text_with_len(hbs_str_val(tmp), hbs_str_len(tmp));
+                handlebars_talloc_free(tmp);
+                output = DatumGetTextP(DirectFunctionCall2(text_concat, PointerGetDatum(output), PointerGetDatum(out)));
+                pfree(out);
+            }
+            handlebars_context_dtor(ctx);
+            PG_RETURN_TEXT_P(output);
+        } break;
+        case 3: {
+            char *name;
+            FILE *file;
+            if (PG_ARGISNULL(2)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (!(file = fopen(name, "wb"))) E("!fopen");
+            pfree(name);
+            for (struct handlebars_token **tokens = handlebars_lex_ex(parser, tmpl); *tokens; tokens++ ) {
+                struct handlebars_string *tmp = handlebars_token_print(ctx, *tokens, 1);
+                fwrite(hbs_str_val(tmp), sizeof(char), hbs_str_len(tmp), file);
+                handlebars_talloc_free(tmp);
+            }
+            fclose(file);
+            handlebars_context_dtor(ctx);
+            PG_RETURN_BOOL(true);
+        } break;
+        default: E("expect be 2 or 3 args");
+    }
+}
+
+EXTENSION(pg_handlebars_module) {
+    bool pretty_print = true;
+    jmp_buf jmp;
+    struct handlebars_ast_node *ast;
+    struct handlebars_compiler *compiler;
+    struct handlebars_context *ctx;
+    struct handlebars_module *module;
+    struct handlebars_parser *parser;
+    struct handlebars_program *program;
+    struct handlebars_string *print;
+    struct handlebars_string *tmpl;
+    text *template;
+    unsigned long compiler_flags = 0;
+    if (PG_ARGISNULL(0)) E("template is null!");
+    if (PG_ARGISNULL(1)) E("flags is null!");
+    if (PG_ARGISNULL(2)) E("pretty is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(0));
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
+    pretty_print = DatumGetBool(PG_GETARG_DATUM(2));
+    ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
+    parser = handlebars_parser_ctor(ctx);
+    compiler = handlebars_compiler_ctor(ctx);
+    handlebars_compiler_set_flags(compiler, compiler_flags);
+    tmpl = handlebars_string_ctor(HBSCTX(ctx), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
+    program = handlebars_compiler_compile_ex(compiler, ast);
+    module = handlebars_program_serialize(ctx, program);
+    handlebars_module_generate_hash(module);
+    switch (PG_NARGS()) {
+        case 3: {
+            text *output;
+            if (pretty_print) {
+                print = handlebars_module_print(ctx, module);
+                output = cstring_to_text_with_len(hbs_str_val(print), hbs_str_len(print));
+            } else {
+                handlebars_module_normalize_pointers(module, (void *) 0);
+                output = cstring_to_text_with_len((char *)module, handlebars_module_get_size(module));
+            }
+            handlebars_context_dtor(ctx);
+            PG_RETURN_TEXT_P(output);
+        } break;
+        case 4: {
+            char *name;
+            FILE *file;
+            if (PG_ARGISNULL(3)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(3));
+            if (!(file = fopen(name, "wb"))) E("!fopen");
+            pfree(name);
+            if (pretty_print) {
+                print = handlebars_module_print(ctx, module);
+                fwrite(hbs_str_val(print), sizeof(char), hbs_str_len(print), file);
+            } else {
+                handlebars_module_normalize_pointers(module, (void *) 0);
+                fwrite((char *) module, sizeof(char), handlebars_module_get_size(module), file);
+            }
+            fclose(file);
+            handlebars_context_dtor(ctx);
+            PG_RETURN_BOOL(true);
+        } break;
+        default: E("expect be 3 or 4 args");
+    }
+}
+
+EXTENSION(pg_handlebars_parse) {
+    jmp_buf jmp;
+    struct handlebars_ast_node *ast;
+    struct handlebars_context *ctx;
+    struct handlebars_parser *parser;
+    struct handlebars_string *print;
+    struct handlebars_string *tmpl;
+    text *template;
+    unsigned long compiler_flags = 0;
+    if (PG_ARGISNULL(0)) E("template is null!");
+    if (PG_ARGISNULL(1)) E("flags is null!");
+    template = DatumGetTextP(PG_GETARG_DATUM(0));
+    compiler_flags = DatumGetUInt64(PG_GETARG_DATUM(1));
+    ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) E(handlebars_error_message(ctx));
+    tmpl = handlebars_string_ctor(HBSCTX(ctx), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    parser = handlebars_parser_ctor(ctx);
+    ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
+    print = handlebars_ast_print(HBSCTX(parser), ast);
+    switch (PG_NARGS()) {
+        case 2: {
+            text *output = cstring_to_text_with_len(hbs_str_val(print), hbs_str_len(print));
+            handlebars_context_dtor(ctx);
+            PG_RETURN_TEXT_P(output);
+        } break;
+        case 3: {
+            char *name;
+            FILE *file;
+            if (PG_ARGISNULL(2)) E("file is null!");
+            name = TextDatumGetCString(PG_GETARG_DATUM(2));
+            if (!(file = fopen(name, "wb"))) E("!fopen");
+            pfree(name);
+            fwrite(hbs_str_val(print), sizeof(char), hbs_str_len(print), file);
+            fclose(file);
+            handlebars_context_dtor(ctx);
+            PG_RETURN_BOOL(true);
+        } break;
+        default: E("expect be 2 or 3 args");
+    }
+}
