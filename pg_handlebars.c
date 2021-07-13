@@ -132,32 +132,31 @@ EXTENSION(pg_handlebars) {
         talloc_free(root);
         E(error);
     }
-    parser = handlebars_parser_ctor(ctx);
     compiler = handlebars_compiler_ctor(ctx);
+    handlebars_compiler_set_flags(compiler, compiler_flags);
+    parser = handlebars_parser_ctor(ctx);
+    tmpl = handlebars_string_ctor(HBSCTX(parser), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
+    ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
+    program = handlebars_compiler_compile_ex(compiler, ast);
+    module = handlebars_program_serialize(ctx, program);
+    input = handlebars_value_ctor(ctx);
+    handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
+    if (convert_input) handlebars_value_convert(input);
     if (enable_partial_loader) {
         struct handlebars_string *partial_path_str = partial_path ? handlebars_string_ctor(ctx, VARDATA_ANY(partial_path), VARSIZE_ANY_EXHDR(partial_path)) : handlebars_string_ctor(ctx, ".", sizeof(".") - 1);
         struct handlebars_string *partial_extension_str = partial_extension ? handlebars_string_ctor(ctx, VARDATA_ANY(partial_extension), VARSIZE_ANY_EXHDR(partial_extension)) : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1);
         partials = handlebars_value_ctor(ctx);
         (void) handlebars_value_partial_loader_init(ctx, partial_path_str, partial_extension_str, partials);
     }
-    handlebars_compiler_set_flags(compiler, compiler_flags);
-    tmpl = handlebars_string_ctor(HBSCTX(parser), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
-    if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
-    input = handlebars_value_ctor(ctx);
-    handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
-    if (convert_input) handlebars_value_convert(input);
-    ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
-    program = handlebars_compiler_compile_ex(compiler, ast);
-    module = handlebars_program_serialize(ctx, program);
     do {
-        struct handlebars_vm *vm;
+        struct handlebars_vm *vm = handlebars_vm_ctor(ctx);
+        handlebars_vm_set_flags(vm, compiler_flags);
+        handlebars_vm_set_partials(vm, partials);
         if (buffer) {
             handlebars_talloc_free(buffer);
             buffer = NULL;
         }
-        vm = handlebars_vm_ctor(ctx);
-        handlebars_vm_set_flags(vm, compiler_flags);
-        handlebars_vm_set_partials(vm, partials);
         buffer = handlebars_vm_execute(vm, module, input);
         buffer = talloc_steal(ctx, buffer);
         handlebars_vm_dtor(vm);
