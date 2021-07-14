@@ -1,8 +1,6 @@
 #ifndef PG_HANDLEBARS_JSON_H
 #define PG_HANDLEBARS_JSON_H
 
-#include <handlebars/handlebars.h>
-
 HBS_EXTERN_C_START
 
 struct handlebars_context;
