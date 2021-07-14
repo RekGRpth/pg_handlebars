@@ -68,8 +68,10 @@ PG_MODULE_MAGIC;
 static bool convert_input = true;
 static bool enable_partial_loader = true;
 static long run_count = 1;
-static text *partial_extension = NULL;
-static text *partial_path = NULL;
+static struct handlebars_context *ctx = NULL;
+static struct handlebars_string *partial_extension = NULL;
+static struct handlebars_string *partial_path = NULL;
+static TALLOC_CTX *root = NULL;
 static unsigned long compiler_flags = handlebars_compiler_flag_none;
 
 EXTENSION(pg_handlebars_compiler_flag_all) { compiler_flags |= handlebars_compiler_flag_all; PG_RETURN_NULL(); }
@@ -91,15 +93,53 @@ EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars
 
 EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null!"); convert_input = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_extension) { if (PG_ARGISNULL(0)) E("extension is null!"); if (partial_extension) pfree(partial_extension); partial_extension = cstring_to_text_with_len(VARDATA_ANY(DatumGetTextP(PG_GETARG_DATUM(0))), VARSIZE_ANY_EXHDR(DatumGetTextP(PG_GETARG_DATUM(0)))); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_partial_path) { if (PG_ARGISNULL(0)) E("path is null!"); if (partial_path) pfree(partial_path); partial_path = cstring_to_text_with_len(VARDATA_ANY(DatumGetTextP(PG_GETARG_DATUM(0))), VARSIZE_ANY_EXHDR(DatumGetTextP(PG_GETARG_DATUM(0)))); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_run_count) { if (PG_ARGISNULL(0)) E("run is null!"); run_count = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
+
+static void pg_handlebars_clean(void) {
+    handlebars_context_dtor(ctx);
+    ctx = NULL;
+    talloc_free(root);
+    root = NULL;
+    partial_extension = NULL;
+    partial_path = NULL;
+}
+
+EXTENSION(pg_handlebars_partial_extension) {
+    jmp_buf jmp;
+    text *extension;
+    if (PG_ARGISNULL(0)) E("extension is null!");
+    extension = DatumGetTextP(PG_GETARG_DATUM(0));
+    if (!root) root = talloc_new(NULL);
+    if (!ctx) ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) {
+        const char *error = pstrdup(handlebars_error_message(ctx));
+        pg_handlebars_clean();
+        E(error);
+    }
+    partial_extension = handlebars_string_ctor(ctx, VARDATA_ANY(extension), VARSIZE_ANY_EXHDR(extension));
+    PG_RETURN_NULL();
+}
+
+EXTENSION(pg_handlebars_partial_path) {
+    jmp_buf jmp;
+    text *path;
+    if (PG_ARGISNULL(0)) E("path is null!");
+    path = DatumGetTextP(PG_GETARG_DATUM(0));
+    if (!root) root = talloc_new(NULL);
+    if (!ctx) ctx = handlebars_context_ctor_ex(root);
+    if (handlebars_setjmp_ex(ctx, &jmp)) {
+        const char *error = pstrdup(handlebars_error_message(ctx));
+        pg_handlebars_clean();
+        E(error);
+    }
+    partial_path = handlebars_string_ctor(ctx, VARDATA_ANY(path), VARSIZE_ANY_EXHDR(path));
+    PG_RETURN_NULL();
+}
 
 EXTENSION(pg_handlebars) {
     jmp_buf jmp;
     struct handlebars_ast_node *ast;
     struct handlebars_compiler *compiler;
-    struct handlebars_context *ctx;
     struct handlebars_module *module;
     struct handlebars_parser *parser;
     struct handlebars_program *program;
@@ -107,19 +147,17 @@ EXTENSION(pg_handlebars) {
     struct handlebars_string *tmpl;
     struct handlebars_value *input;
     struct handlebars_value *partials;
-    TALLOC_CTX *root;
     text *json;
     text *template;
     if (PG_ARGISNULL(0)) E("json is null!");
     if (PG_ARGISNULL(1)) E("template is null!");
     json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = DatumGetTextP(PG_GETARG_DATUM(1));
-    root = talloc_new(NULL);
-    ctx = handlebars_context_ctor_ex(root);
+    if (!root) root = talloc_new(NULL);
+    if (!ctx) ctx = handlebars_context_ctor_ex(root);
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         const char *error = pstrdup(handlebars_error_message(ctx));
-        handlebars_context_dtor(ctx);
-        talloc_free(root);
+        pg_handlebars_clean();
         E(error);
     }
     compiler = handlebars_compiler_ctor(ctx);
@@ -133,20 +171,12 @@ EXTENSION(pg_handlebars) {
     input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
     if (convert_input) handlebars_value_convert(input);
-    if (enable_partial_loader) {
-        struct handlebars_string *partial_path_str = partial_path ? handlebars_string_ctor(ctx, VARDATA_ANY(partial_path), VARSIZE_ANY_EXHDR(partial_path)) : handlebars_string_ctor(ctx, ".", sizeof(".") - 1);
-        struct handlebars_string *partial_extension_str = partial_extension ? handlebars_string_ctor(ctx, VARDATA_ANY(partial_extension), VARSIZE_ANY_EXHDR(partial_extension)) : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1);
-        partials = handlebars_value_ctor(ctx);
-        (void) handlebars_value_partial_loader_init(ctx, partial_path_str, partial_extension_str, partials);
-    }
+    if (enable_partial_loader) partials = handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx));
     do {
         struct handlebars_vm *vm = handlebars_vm_ctor(ctx);
         handlebars_vm_set_flags(vm, compiler_flags);
-        handlebars_vm_set_partials(vm, partials);
-        if (buffer) {
-            handlebars_talloc_free(buffer);
-            buffer = NULL;
-        }
+        if (enable_partial_loader) handlebars_vm_set_partials(vm, partials);
+        if (buffer) handlebars_talloc_free(buffer);
         buffer = handlebars_vm_execute(vm, module, input);
         buffer = talloc_steal(ctx, buffer);
         handlebars_vm_dtor(vm);
@@ -155,18 +185,15 @@ EXTENSION(pg_handlebars) {
     handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
         case 2: if (!buffer) {
-            handlebars_context_dtor(ctx);
-            talloc_free(root);
+            pg_handlebars_clean();
             PG_RETURN_NULL();
         } else {
             text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
-            handlebars_context_dtor(ctx);
-            talloc_free(root);
+            pg_handlebars_clean();
             PG_RETURN_TEXT_P(output);
         } break;
         case 3: if (!buffer) {
-            handlebars_context_dtor(ctx);
-            talloc_free(root);
+            pg_handlebars_clean();
             PG_RETURN_BOOL(false);
         } else {
             char *name;
@@ -177,8 +204,7 @@ EXTENSION(pg_handlebars) {
             pfree(name);
             fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), file);
             fclose(file);
-            handlebars_context_dtor(ctx);
-            talloc_free(root);
+            pg_handlebars_clean();
             PG_RETURN_BOOL(true);
         } break;
         default: handlebars_throw(ctx, HANDLEBARS_ERROR, "expect be 2 or 3 args");
