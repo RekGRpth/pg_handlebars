@@ -166,7 +166,7 @@ EXTENSION(pg_handlebars) {
         handlebars_vm_dtor(vm);
     } while(--run_count > 0);
     handlebars_value_dtor(input);
-    handlebars_value_dtor(partials);
+    if (enable_partial_loader) handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
         case 2: if (!buffer) {
             pg_handlebars_clean();
