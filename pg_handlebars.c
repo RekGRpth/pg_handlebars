@@ -51,7 +51,6 @@ PG_MODULE_MAGIC;
 
 static bool convert_input = true;
 static bool enable_partial_loader = true;
-static long run_count = 1;
 static struct handlebars_context *ctx = NULL;
 static struct handlebars_string *partial_extension = NULL;
 static struct handlebars_string *partial_path = NULL;
@@ -77,7 +76,6 @@ EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars
 
 EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null!"); convert_input = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-EXTENSION(pg_handlebars_run_count) { if (PG_ARGISNULL(0)) E("run is null!"); run_count = DatumGetInt64(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 
 static void pg_handlebars_clean(void) {
     handlebars_context_dtor(ctx);
@@ -127,10 +125,11 @@ EXTENSION(pg_handlebars) {
     struct handlebars_module *module;
     struct handlebars_parser *parser;
     struct handlebars_program *program;
-    struct handlebars_string *buffer = NULL;
+    struct handlebars_string *buffer;
     struct handlebars_string *tmpl;
     struct handlebars_value *input;
     struct handlebars_value *partials;
+    struct handlebars_vm *vm;
     text *json;
     text *template;
     if (PG_ARGISNULL(0)) E("json is null!");
@@ -155,18 +154,14 @@ EXTENSION(pg_handlebars) {
     input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
     if (convert_input) handlebars_value_convert(input);
-    if (enable_partial_loader) partials = handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx));
-    do {
-        struct handlebars_vm *vm = handlebars_vm_ctor(ctx);
-        handlebars_vm_set_flags(vm, compiler_flags);
-        if (enable_partial_loader) handlebars_vm_set_partials(vm, partials);
-        if (buffer) handlebars_talloc_free(buffer);
-        buffer = handlebars_vm_execute(vm, module, input);
-        buffer = talloc_steal(ctx, buffer);
-        handlebars_vm_dtor(vm);
-    } while(--run_count > 0);
+    partials = enable_partial_loader ? handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx)) : NULL;
+    vm = handlebars_vm_ctor(ctx);
+    handlebars_vm_set_flags(vm, compiler_flags);
+    if (partials) handlebars_vm_set_partials(vm, partials);
+    buffer = talloc_steal(ctx, handlebars_vm_execute(vm, module, input));
+    handlebars_vm_dtor(vm);
     handlebars_value_dtor(input);
-    if (enable_partial_loader) handlebars_value_dtor(partials);
+    if (partials) handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
         case 2: if (!buffer) {
             pg_handlebars_clean();
