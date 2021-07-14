@@ -49,7 +49,6 @@
 
 PG_MODULE_MAGIC;
 
-static bool convert_input = true;
 static bool enable_partial_loader = true;
 static struct handlebars_context *ctx = NULL;
 static struct handlebars_string *partial_extension = NULL;
@@ -74,7 +73,6 @@ EXTENSION(pg_handlebars_compiler_flag_track_ids) { compiler_flags |= handlebars_
 EXTENSION(pg_handlebars_compiler_flag_use_data) { compiler_flags |= handlebars_compiler_flag_use_data; PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars_compiler_flag_use_depths; PG_RETURN_NULL(); }
 
-EXTENSION(pg_handlebars_convert_input) { if (PG_ARGISNULL(0)) E("convert is null!"); convert_input = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
 
 static void pg_handlebars_clean(void) {
@@ -153,7 +151,7 @@ EXTENSION(pg_handlebars) {
     module = handlebars_program_serialize(ctx, program);
     input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
-    if (convert_input) handlebars_value_convert(input);
+//    if (convert_input) handlebars_value_convert(input);
     partials = enable_partial_loader ? handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx)) : NULL;
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);

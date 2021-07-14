@@ -18,7 +18,6 @@ CREATE OR REPLACE FUNCTION handlebars_compiler_flag_track_ids() RETURNS void AS 
 CREATE OR REPLACE FUNCTION handlebars_compiler_flag_use_data() RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_compiler_flag_use_data' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_compiler_flag_use_depths() RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_compiler_flag_use_depths' LANGUAGE 'c';
 
-CREATE OR REPLACE FUNCTION handlebars_convert_input(convert bool) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_convert_input' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_enable_partial_loader(partial bool) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_enable_partial_loader' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_partial_extension(extension text) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_partial_extension' LANGUAGE 'c';
 CREATE OR REPLACE FUNCTION handlebars_partial_path(path text) RETURNS void AS 'MODULE_PATHNAME', 'pg_handlebars_partial_path' LANGUAGE 'c';
