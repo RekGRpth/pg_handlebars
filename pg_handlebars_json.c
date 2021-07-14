@@ -2,7 +2,7 @@
 #include <json-c/json.h>
 #include "pg_handlebars_json.h"
 
-void handlebars_value_init_json_string_length(struct handlebars_context *ctx, struct handlebars_value * value, const char * json, size_t length) {
+void handlebars_value_init_json_string_length(struct handlebars_context *ctx, struct handlebars_value *value, const char *json, size_t length) {
     enum json_tokener_error error;
     struct json_object *root;
     struct json_tokener *tok;
