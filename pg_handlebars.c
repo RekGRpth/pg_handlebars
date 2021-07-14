@@ -10,7 +10,6 @@
 #include <handlebars/handlebars_value.h>
 #include <handlebars/handlebars_vm.h>
 #include "pg_handlebars_json.h"
-#include <talloc.h>
 #include <utils/builtins.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
@@ -108,7 +107,7 @@ EXTENSION(pg_handlebars) {
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);
     handlebars_vm_set_partials(vm, partials);
-    buffer = talloc_steal(ctx, handlebars_vm_execute(vm, module, input));
+    buffer = handlebars_vm_execute(vm, module, input);
     handlebars_vm_dtor(vm);
     handlebars_value_dtor(input);
     handlebars_value_dtor(partials);
