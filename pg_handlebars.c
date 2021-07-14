@@ -49,10 +49,7 @@
 
 PG_MODULE_MAGIC;
 
-static bool enable_partial_loader = true;
 static struct handlebars_context *ctx = NULL;
-static struct handlebars_string *partial_extension = NULL;
-static struct handlebars_string *partial_path = NULL;
 static TALLOC_CTX *root = NULL;
 static unsigned long compiler_flags = handlebars_compiler_flag_none;
 
@@ -73,47 +70,11 @@ EXTENSION(pg_handlebars_compiler_flag_track_ids) { compiler_flags |= handlebars_
 EXTENSION(pg_handlebars_compiler_flag_use_data) { compiler_flags |= handlebars_compiler_flag_use_data; PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_compiler_flag_use_depths) { compiler_flags |= handlebars_compiler_flag_use_depths; PG_RETURN_NULL(); }
 
-EXTENSION(pg_handlebars_enable_partial_loader) { if (PG_ARGISNULL(0)) E("partial is null!"); enable_partial_loader = DatumGetBool(PG_GETARG_DATUM(0)); PG_RETURN_NULL(); }
-
 static void pg_handlebars_clean(void) {
     handlebars_context_dtor(ctx);
     ctx = NULL;
     talloc_free(root);
     root = NULL;
-    partial_extension = NULL;
-    partial_path = NULL;
-}
-
-EXTENSION(pg_handlebars_partial_extension) {
-    jmp_buf jmp;
-    text *extension;
-    if (PG_ARGISNULL(0)) E("extension is null!");
-    extension = DatumGetTextP(PG_GETARG_DATUM(0));
-    if (!root) root = talloc_new(NULL);
-    if (!ctx) ctx = handlebars_context_ctor_ex(root);
-    if (handlebars_setjmp_ex(ctx, &jmp)) {
-        const char *error = pstrdup(handlebars_error_message(ctx));
-        pg_handlebars_clean();
-        E(error);
-    }
-    partial_extension = handlebars_string_ctor(ctx, VARDATA_ANY(extension), VARSIZE_ANY_EXHDR(extension));
-    PG_RETURN_NULL();
-}
-
-EXTENSION(pg_handlebars_partial_path) {
-    jmp_buf jmp;
-    text *path;
-    if (PG_ARGISNULL(0)) E("path is null!");
-    path = DatumGetTextP(PG_GETARG_DATUM(0));
-    if (!root) root = talloc_new(NULL);
-    if (!ctx) ctx = handlebars_context_ctor_ex(root);
-    if (handlebars_setjmp_ex(ctx, &jmp)) {
-        const char *error = pstrdup(handlebars_error_message(ctx));
-        pg_handlebars_clean();
-        E(error);
-    }
-    partial_path = handlebars_string_ctor(ctx, VARDATA_ANY(path), VARSIZE_ANY_EXHDR(path));
-    PG_RETURN_NULL();
 }
 
 EXTENSION(pg_handlebars) {
@@ -152,14 +113,14 @@ EXTENSION(pg_handlebars) {
     input = handlebars_value_ctor(ctx);
     handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
 //    if (convert_input) handlebars_value_convert(input);
-    partials = enable_partial_loader ? handlebars_value_partial_loader_init(ctx, partial_path ? partial_path : handlebars_string_ctor(ctx, ".", sizeof(".") - 1), partial_extension ? partial_extension : handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx)) : NULL;
+    partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, "", sizeof("") - 1), handlebars_value_ctor(ctx));
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);
-    if (partials) handlebars_vm_set_partials(vm, partials);
+    handlebars_vm_set_partials(vm, partials);
     buffer = talloc_steal(ctx, handlebars_vm_execute(vm, module, input));
     handlebars_vm_dtor(vm);
     handlebars_value_dtor(input);
-    if (partials) handlebars_value_dtor(partials);
+    handlebars_value_dtor(partials);
     switch (PG_NARGS()) {
         case 2: if (!buffer) {
             pg_handlebars_clean();
