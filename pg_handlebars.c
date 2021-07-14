@@ -81,19 +81,16 @@ EXTENSION(pg_handlebars) {
     struct handlebars_value *input;
     struct handlebars_value *partials;
     struct handlebars_vm *vm;
-    TALLOC_CTX *root;
     text *json;
     text *template;
     if (PG_ARGISNULL(0)) E("json is null!");
     if (PG_ARGISNULL(1)) E("template is null!");
     json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = DatumGetTextP(PG_GETARG_DATUM(1));
-    root = talloc_new(NULL);
-    ctx = handlebars_context_ctor_ex(root);
+    ctx = handlebars_context_ctor();
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         const char *error = pstrdup(handlebars_error_message(ctx));
         handlebars_context_dtor(ctx);
-        talloc_free(root);
         E(error);
     }
     compiler = handlebars_compiler_ctor(ctx);
@@ -118,17 +115,14 @@ EXTENSION(pg_handlebars) {
     switch (PG_NARGS()) {
         case 2: if (!buffer) {
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             PG_RETURN_NULL();
         } else {
             text *output = cstring_to_text_with_len(hbs_str_val(buffer), hbs_str_len(buffer));
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             PG_RETURN_TEXT_P(output);
         } break;
         case 3: if (!buffer) {
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             PG_RETURN_BOOL(false);
         } else {
             char *name;
@@ -140,7 +134,6 @@ EXTENSION(pg_handlebars) {
             fwrite(hbs_str_val(buffer), sizeof(char), hbs_str_len(buffer), file);
             fclose(file);
             handlebars_context_dtor(ctx);
-            talloc_free(root);
             PG_RETURN_BOOL(true);
         } break;
         default: handlebars_throw(ctx, HANDLEBARS_ERROR, "expect be 2 or 3 args");
