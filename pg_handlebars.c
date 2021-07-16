@@ -48,7 +48,7 @@
 
 PG_MODULE_MAGIC;
 
-static unsigned long compiler_flags = handlebars_compiler_flag_none;
+static unsigned long compiler_flags = handlebars_compiler_flag_compat;
 
 EXTENSION(pg_handlebars_compiler_flag_all) { compiler_flags |= handlebars_compiler_flag_all; PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_compiler_flag_alternate_decorators) { compiler_flags |= handlebars_compiler_flag_alternate_decorators; PG_RETURN_NULL(); }
