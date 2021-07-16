@@ -2,6 +2,7 @@
 
 #include <handlebars/handlebars_compiler.h>
 #include <handlebars/handlebars_delimiters.h>
+#include <handlebars/handlebars_json.h>
 #include <handlebars/handlebars_memory.h>
 #include <handlebars/handlebars_opcode_serializer.h>
 #include <handlebars/handlebars_parser.h>
@@ -9,7 +10,6 @@
 #include <handlebars/handlebars_string.h>
 #include <handlebars/handlebars_value.h>
 #include <handlebars/handlebars_vm.h>
-#include "pg_handlebars_json.h"
 #include <utils/builtins.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
@@ -95,13 +95,14 @@ EXTENSION(pg_handlebars) {
     compiler = handlebars_compiler_ctor(ctx);
     handlebars_compiler_set_flags(compiler, compiler_flags);
     parser = handlebars_parser_ctor(ctx);
-    tmpl = handlebars_string_ctor(HBSCTX(parser), VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    tmpl = handlebars_string_ctor(ctx, VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
     if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
     ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
     program = handlebars_compiler_compile_ex(compiler, ast);
     module = handlebars_program_serialize(ctx, program);
     input = handlebars_value_ctor(ctx);
-    handlebars_value_init_json_string_length(ctx, input, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
+    buffer = handlebars_string_ctor(ctx, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
+    handlebars_value_init_json_string(ctx, input, hbs_str_val(buffer));
 //    if (convert_input) handlebars_value_convert(input);
     partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, "", sizeof("") - 1), handlebars_value_ctor(ctx));
     vm = handlebars_vm_ctor(ctx);
