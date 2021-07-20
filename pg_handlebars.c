@@ -48,7 +48,7 @@
 
 PG_MODULE_MAGIC;
 
-static unsigned long compiler_flags = handlebars_compiler_flag_compat;
+static unsigned long compiler_flags = handlebars_compiler_flag_alternate_decorators|handlebars_compiler_flag_compat|handlebars_compiler_flag_explicit_partial_context|handlebars_compiler_flag_ignore_standalone|handlebars_compiler_flag_known_helpers_only|handlebars_compiler_flag_mustache_style_lambdas|handlebars_compiler_flag_prevent_indent|handlebars_compiler_flag_use_data|handlebars_compiler_flag_use_depths;
 
 EXTENSION(pg_handlebars_compiler_flag_all) { compiler_flags |= handlebars_compiler_flag_all; PG_RETURN_NULL(); }
 EXTENSION(pg_handlebars_compiler_flag_alternate_decorators) { compiler_flags |= handlebars_compiler_flag_alternate_decorators; PG_RETURN_NULL(); }
