@@ -104,7 +104,7 @@ EXTENSION(pg_handlebars) {
     buffer = handlebars_string_ctor(ctx, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
     handlebars_value_init_json_string(ctx, input, hbs_str_val(buffer));
     handlebars_value_convert(input);
-    partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, "", sizeof("") - 1), handlebars_value_ctor(ctx));
+    partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx));
     vm = handlebars_vm_ctor(ctx);
     handlebars_vm_set_flags(vm, compiler_flags);
     handlebars_vm_set_partials(vm, partials);
