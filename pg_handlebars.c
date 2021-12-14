@@ -14,18 +14,6 @@
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
-#define D1(...) ereport(DEBUG1, (errmsg(__VA_ARGS__)))
-#define D2(...) ereport(DEBUG2, (errmsg(__VA_ARGS__)))
-#define D3(...) ereport(DEBUG3, (errmsg(__VA_ARGS__)))
-#define D4(...) ereport(DEBUG4, (errmsg(__VA_ARGS__)))
-#define D5(...) ereport(DEBUG5, (errmsg(__VA_ARGS__)))
-#define E(...) ereport(ERROR, (errmsg(__VA_ARGS__)))
-#define F(...) ereport(FATAL, (errmsg(__VA_ARGS__)))
-#define I(...) ereport(INFO, (errmsg(__VA_ARGS__)))
-#define L(...) ereport(LOG, (errmsg(__VA_ARGS__)))
-#define N(...) ereport(NOTICE, (errmsg(__VA_ARGS__)))
-#define W(...) ereport(WARNING, (errmsg(__VA_ARGS__)))
-
 PG_MODULE_MAGIC;
 
 static unsigned long compiler_flags = handlebars_compiler_flag_alternate_decorators|handlebars_compiler_flag_compat|handlebars_compiler_flag_explicit_partial_context|handlebars_compiler_flag_ignore_standalone|handlebars_compiler_flag_known_helpers_only|handlebars_compiler_flag_mustache_style_lambdas|handlebars_compiler_flag_prevent_indent|handlebars_compiler_flag_use_data|handlebars_compiler_flag_use_depths;
@@ -62,15 +50,15 @@ EXTENSION(pg_handlebars) {
     struct handlebars_vm *vm;
     text *json;
     text *template;
-    if (PG_ARGISNULL(0)) E("json is null!");
-    if (PG_ARGISNULL(1)) E("template is null!");
+    if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("handlebars requires argument json")));
+    if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("handlebars requires argument template")));
     json = DatumGetTextP(PG_GETARG_DATUM(0));
     template = DatumGetTextP(PG_GETARG_DATUM(1));
     ctx = handlebars_context_ctor();
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         const char *error = pstrdup(handlebars_error_message(ctx));
         handlebars_context_dtor(ctx);
-        E("%s", error);
+        ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR), errmsg("%s", error)));
     }
     compiler = handlebars_compiler_ctor(ctx);
     handlebars_compiler_set_flags(compiler, compiler_flags);
