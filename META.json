@@ -2,13 +2,13 @@
     "name": "pg_handlebars",
     "abstract": "PostgreSQL handlebars",
     "description": "PostgreSQL implementation of handlebars templating",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "maintainer": "RekGRpth <rekgrpth@gmail.com>",
     "license": "mit",
     "provides": {
         "pg_handlebars": {
             "file": "pg_handlebars--1.0.sql",
-            "version": "1.0.1"
+            "version": "1.0.2"
         }
     },
     "resources": {
