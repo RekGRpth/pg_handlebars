@@ -1,14 +1,9 @@
+$(OBJS): Makefile
+DATA = pg_handlebars--1.0.sql
 EXTENSION = pg_handlebars
 MODULE_big = $(EXTENSION)
-
-PG_CONFIG = pg_config
 OBJS = $(EXTENSION).o
-DATA = pg_handlebars--1.0.sql
-
-LIBS += -lhandlebars
-SHLIB_LINK := $(LIBS)
-
-PGXS := $(shell $(PG_CONFIG) --pgxs)
+PG_CONFIG = pg_config
+PGXS = $(shell $(PG_CONFIG) --pgxs)
+SHLIB_LINK = -lhandlebars
 include $(PGXS)
-
-$(OBJS): Makefile
