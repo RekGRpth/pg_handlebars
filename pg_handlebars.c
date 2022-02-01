@@ -52,8 +52,8 @@ EXTENSION(pg_handlebars) {
     text *template;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("handlebars requires argument json")));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED), errmsg("handlebars requires argument template")));
-    json = DatumGetTextP(PG_GETARG_DATUM(0));
-    template = DatumGetTextP(PG_GETARG_DATUM(1));
+    json = PG_GETARG_TEXT_PP(0);
+    template = PG_GETARG_TEXT_PP(1);
     ctx = handlebars_context_ctor();
     if (handlebars_setjmp_ex(ctx, &jmp)) {
         const char *error = pstrdup(handlebars_error_message(ctx));
@@ -64,12 +64,14 @@ EXTENSION(pg_handlebars) {
     handlebars_compiler_set_flags(compiler, compiler_flags);
     parser = handlebars_parser_ctor(ctx);
     tmpl = handlebars_string_ctor(ctx, VARDATA_ANY(template), VARSIZE_ANY_EXHDR(template));
+    PG_FREE_IF_COPY(template, 1);
     if (compiler_flags & handlebars_compiler_flag_compat) tmpl = handlebars_preprocess_delimiters(ctx, tmpl, NULL, NULL);
     ast = handlebars_parse_ex(parser, tmpl, compiler_flags);
     program = handlebars_compiler_compile_ex(compiler, ast);
     module = handlebars_program_serialize(ctx, program);
     input = handlebars_value_ctor(ctx);
     buffer = handlebars_string_ctor(ctx, VARDATA_ANY(json), VARSIZE_ANY_EXHDR(json));
+    PG_FREE_IF_COPY(json, 0);
     handlebars_value_init_json_string(ctx, input, hbs_str_val(buffer));
     handlebars_value_convert(input);
     partials = handlebars_value_partial_loader_init(ctx, handlebars_string_ctor(ctx, ".", sizeof(".") - 1), handlebars_string_ctor(ctx, ".hbs", sizeof(".hbs") - 1), handlebars_value_ctor(ctx));
