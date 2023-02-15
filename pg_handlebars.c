@@ -1,5 +1,9 @@
 #include <postgres.h>
 
+#if PG_VERSION_NUM >= 160000
+#include <varatt.h>
+#endif
+
 #include <handlebars/handlebars_compiler.h>
 #include <handlebars/handlebars_delimiters.h>
 #include <handlebars/handlebars_json.h>
